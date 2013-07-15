@@ -166,7 +166,7 @@ class Forest(object):
 
 		
 
-	def distanceMatrix(self, sigma=1.0):
+	def distanceMatrix(self, gridsize=100, sigma=1.0):
 		"""
 		Documentation. For now assume this is the canvas distance. Eventually,
 		this should dispatch any one of several level set tree distances.
@@ -177,16 +177,18 @@ class Forest(object):
 		d = np.zeros((n_tree, n_tree), dtype=np.float)
 
 		for i in range(n_tree-1):
+			z_i = treeToCanvas(self.trees[i], gridsize, sigma)
+			
 			for j in range(i+1, n_tree):
 				print i, j
-				d[i, j] = canvasDistance(self.trees[i], self.trees[j],
-					gridsize=100, sigma=sigma)
+				z_j = treeToCanvas(self.trees[j], gridsize, sigma)
+				d[i, j] = np.sqrt(np.sum((z_i - z_j)**2))
 				
 		d = d + d.T
 		return d
 		
 		
-	def metaTree(self, sigma, k):
+	def metaTree(self, gridsize, sigma, k):
 		"""
 		Construct a level set tree on the trees in the forest. Use
 		pseudo-densities as though the trees have some sort of random
@@ -194,7 +196,7 @@ class Forest(object):
 		"""
 		
 		p = 1  
-		self.distances = self.distanceMatrix(sigma=sigma)
+		self.distances = self.distanceMatrix(gridsize, sigma)
 	
 		rank = np.argsort(self.distances, axis=1)
 		ix_nbr = rank[:, 0:k]
@@ -230,10 +232,8 @@ class Forest(object):
 			z = treeToCanvas(tree, gridsize, sigma)
 			d[i] = np.sqrt(np.sum((z - z_star)**2))
 		
-		print d
 		ix_vote = np.argsort(d)[:k]
 		votes = self.cluster[ix_vote]
-		print ix_vote, votes
 		votes = votes[votes >= 0]  # discount the background points
 		y_star = int(stats.mode(votes)[0])
 		
