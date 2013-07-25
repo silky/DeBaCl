@@ -20,6 +20,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import scipy.ndimage as spimg
+from scipy import stats
 
 palette = utl.Palette(use='scatter')
 n_clr = np.alen(palette.colorset)
@@ -35,11 +36,12 @@ class Forest(object):
 	Documentation.
 	"""
 
-	def __init__(self, trees, group=None):
+	def __init__(self, trees, group=None, cluster=None):
 		self.trees = trees
 		self.distances = None
 		self.n_tree = len(trees)
 		self.group = np.array(group)
+		self.cluster = cluster
 
 
 	def plotForest(self, alpha=0.7, show_group=False):
@@ -213,6 +215,29 @@ class Forest(object):
 			verbose=False)		
 
 		return T
+		
+		
+	def knnClassify(self, tree_star, k, gridsize=100, sigma=1.0):
+		"""
+		Predict the class of an unknown tree based on the canvas distance to
+		trees in the forest and the clusters of the forest.
+		"""
+		
+		d = np.zeros((self.n_tree, ), np.float) - 1
+		z_star = treeToCanvas(tree_star, gridsize, sigma)
+
+		for i, tree in enumerate(self.trees):
+			z = treeToCanvas(tree, gridsize, sigma)
+			d[i] = np.sqrt(np.sum((z - z_star)**2))
+		
+		print d
+		ix_vote = np.argsort(d)[:k]
+		votes = self.cluster[ix_vote]
+		print ix_vote, votes
+		votes = votes[votes >= 0]  # discount the background points
+		y_star = int(stats.mode(votes)[0])
+		
+		return y_star
 
 
 
@@ -293,6 +318,44 @@ def canvasDistance(tree1, tree2, gridsize=100, sigma=1.0):
 	distance = np.sqrt(np.sum((z1 - z2)**2))
 	return distance
 
+
+def treeToCanvas(tree, gridsize=100, sigma=1.0):
+	"""
+	Convert a tree (defined in terms of line segments) into a grayscale image.
+	"""
+	
+	grid = np.linspace(0, 1, gridsize+1)
+	z = np.zeros((gridsize, gridsize), dtype=np.int)
+
+	fig, seg, segmap, split, splitmap = tree.plot(form='alpha',
+			width='mass')		
+		
+	for s in seg.values():
+		x = s[0][0]
+		y1 = s[0][1]
+		y2 = s[1][1]
+
+		i = min(np.where(grid >= x)[0]) - 1
+		j1 = min(np.where(grid >= y1)[0])
+		j2 = min(np.where(grid >= y2)[0])
+
+		z[i, j1:(j2+1)] += 1
+
+	for s in split.values():
+		y = s[0][1]
+		x1 = s[0][0]
+		x2 = s[1][0]
+
+		j = min(np.where(grid >= y)[0])	
+		i1 = min(np.where(grid >= min(x1, x2))[0])
+		i2 = min(np.where(grid >= max(x1, x2))[0])
+
+		z[i1:(i2-1), j] += 1
+
+	z = np.rot90(z)
+	z_gauss = spimg.filters.gaussian_filter(z, sigma=sigma)
+
+	return z_gauss
 	
 	
 	
