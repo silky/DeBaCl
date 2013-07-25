@@ -55,7 +55,7 @@ class Forest(object):
 		ax.set_xlim((-0.04, 1.04))
 		ax.set_xticks([])
 		ax.set_xticklabels([])
-		ax.set_ylabel("Mass", rotation=270)
+		ax.set_ylabel("alpha", rotation=90)
 		ax.yaxis.grid(color='gray')
 		ax.set_ylim(-0.02, 1.03)
 
